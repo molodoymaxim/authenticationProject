@@ -1,37 +1,16 @@
-FROM golang:1.23 AS builder
+# Dockerfile
 
+FROM golang:1.17-alpine
 
 WORKDIR /app
-
 
 COPY go.mod go.sum ./
-
-
 RUN go mod download
 
+COPY . .
 
-COPY ./backend ./backend
-
-
-WORKDIR /app/backend/cmd
-
-
-RUN CGO_ENABLED=0 go build -o /app/app .
-
-
-FROM debian:bookworm-slim
-
-
-WORKDIR /app
-
-
-COPY --from=builder /app/app .
-
-
-RUN chmod +x /app/app
-
+RUN go build -o auth-service ./cmd/main.go
 
 EXPOSE 8080
 
-
-CMD ["./app"]
+CMD ["./auth-service"]

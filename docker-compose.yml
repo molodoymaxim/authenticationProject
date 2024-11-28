@@ -1,20 +1,40 @@
 version: '3.8'
 
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  auth-service:
+    build: .
     ports:
-      - - "8080:8080"
+      - "${APP_PORT:-8080}:8080"
+    depends_on:
+      - db
     environment:
-      SERVER_ADDRESS: ${SERVER_ADDRESS}
-      POSTGRES_CONN: ${POSTGRES_CONN}
-      POSTGRES_JDBC_URL: ${POSTGRES_JDBC_URL}
-      POSTGRES_USERNAME: ${POSTGRES_USERNAME}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_DATABASE: ${POSTGRES_DATABASE}
+      - APP_PORT=${APP_PORT}
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - EMAIL_SERVICE_API_KEY=${EMAIL_SERVICE_API_KEY}
+      - LOG_LEVEL=${LOG_LEVEL}
     env_file:
       - .env
+    # volumes:
+    #   - .:/app
+    networks:
+      - app-network
+
+  db:
+    image: postgres:13-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: authdb
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - app-network
+
+volumes:
+  db_data:
+
+networks:
+  app-network:
