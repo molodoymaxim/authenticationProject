@@ -33,7 +33,17 @@ func NewAuthHandler(
 	}
 }
 
-// GenerateTokens выдает пару Access и Refresh токенов
+// GenerateTokens генерирует пару Access и Refresh токенов
+// @Summary Генерация токенов
+// @Description Генерирует Access и Refresh токены для указанного пользователя
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param data body models.TokenRequest true "User ID"
+// @Success 200 {object} models.TokenResponse
+// @Failure 400 {string} string "Bad Request"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /auth/token [post]
 func (h *AuthHandler) GenerateTokens(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Debug("Received request to generate tokens")
 
@@ -79,7 +89,19 @@ func (h *AuthHandler) GenerateTokens(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// RefreshTokens обновляет пару Access и Refresh токенов
+// RefreshTokens обновляет пару токенов
+// @Summary Обновление токенов
+// @Description Обновляет Access и Refresh токены
+// @Tags Authentication
+// @Accept json
+// @Produce json
+// @Param data body models.RefreshTokenRequest true "Refresh Token"
+// @Success 200 {object} models.TokenResponse
+// @Failure 400 {string} string "Bad Request"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 500 {string} string "Internal Server Error"
+// @Security BearerAuth
+// @Router /auth/refresh [post]
 func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Debug("Received request to refresh tokens")
 
@@ -113,7 +135,6 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверяем соответствие Refresh токена
 	err = bcrypt.CompareHashAndPassword([]byte(tokenData.HashedToken), []byte(req.RefreshToken))
 	if err != nil {
 		h.Logger.Warn("Invalid refresh token for user: ", userID)
@@ -121,14 +142,12 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверяем изменение IP адреса
 	clientIP := r.RemoteAddr
 	if claims.IP != clientIP {
 		h.Logger.Warnf("IP address changed for user %s: %s -> %s", userID, claims.IP, clientIP)
 		h.EmailService.SendEmailWarning(userID, "IP address changed during token refresh.")
 	}
 
-	// Генерируем новые токены
 	newAccessToken, err := h.TokenService.GenerateAccessToken(userID, clientIP)
 	if err != nil {
 		h.Logger.Error("Failed to generate new access token: ", err)
@@ -143,7 +162,6 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Обновляем токены в базе данных
 	err = h.TokenRepository.UpdateRefreshToken(userID, newHashedToken, newAccessToken)
 	if err != nil {
 		h.Logger.Error("Failed to update refresh token: ", err)
@@ -157,4 +175,23 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 		"refresh_token": newRefreshToken,
 	}
 	json.NewEncoder(w).Encode(response)
+}
+
+// ProtectedHandler пример защищенного маршрута
+// @Summary Пример защищенного маршрута
+// @Description Доступен только для авторизованных пользователей
+// @Tags Protected
+// @Produce plain
+// @Success 200 {string} string "Hello, user"
+// @Failure 401 {string} string "Unauthorized"
+// @Security BearerAuth
+// @Router /protected [get]
+func ProtectedHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value("userID").(string)
+	if !ok {
+		http.Error(w, "User ID not found in context", http.StatusInternalServerError)
+		return
+	}
+
+	w.Write([]byte("Hello, user " + userID))
 }

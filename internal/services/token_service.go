@@ -20,7 +20,6 @@ func NewTokenService(secretKey string) *TokenService {
 	}
 }
 
-// GenerateAccessToken генерирует JWT Access токен
 func (s *TokenService) GenerateAccessToken(userID, clientIP string) (string, error) {
 	claims := &models.CustomClaims{
 		UserID: userID,
@@ -34,7 +33,6 @@ func (s *TokenService) GenerateAccessToken(userID, clientIP string) (string, err
 	return token.SignedString([]byte(s.SecretKey))
 }
 
-// ValidateAccessToken валидирует JWT Access токен
 func (s *TokenService) ValidateAccessToken(tokenStr string) (*models.CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &models.CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(s.SecretKey), nil
@@ -46,7 +44,6 @@ func (s *TokenService) ValidateAccessToken(tokenStr string) (*models.CustomClaim
 	}
 }
 
-// GenerateRefreshToken генерирует и хеширует Refresh токен
 func (s *TokenService) GenerateRefreshToken() (string, string, error) {
 	tokenBytes := make([]byte, 32)
 	_, err := rand.Read(tokenBytes)

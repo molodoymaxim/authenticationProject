@@ -27,7 +27,6 @@ func AuthMiddleware(tokenService *services.TokenService, logger *logrus.Logger) 
 				return
 			}
 
-			// Сохраняем информацию о пользователе в контекст запроса
 			ctx := context.WithValue(r.Context(), "userID", claims.UserID)
 			ctx = context.WithValue(ctx, "userIP", claims.IP)
 			r = r.WithContext(ctx)

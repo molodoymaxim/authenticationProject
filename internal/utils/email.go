@@ -12,7 +12,6 @@ func NewEmailService(apiKey string) *EmailService {
 	}
 }
 
-// SendEmailWarning отправляет предупреждение на email пользователя
 func (e *EmailService) SendEmailWarning(userID, message string) {
 	fmt.Printf("Sending email to user %s: %s\n", userID, message)
 }

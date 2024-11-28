@@ -1,0 +1,124 @@
+basePath: /
+definitions:
+  models.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        example: <refresh_token>
+        type: string
+    type: object
+  models.TokenRequest:
+    properties:
+      user_id:
+        example: 123e4567-e89b-12d3-a456-426614174000
+        type: string
+    type: object
+  models.TokenResponse:
+    properties:
+      access_token:
+        example: <access_token>
+        type: string
+      refresh_token:
+        example: <refresh_token>
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API для аутентификации пользователей с использованием JWT токенов.
+  license:
+    name: MIT License
+    url: https://opensource.org/licenses/MIT
+  title: Authentication Service API
+  version: "1.0"
+paths:
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Обновляет Access и Refresh токены
+      parameters:
+      - description: Refresh Token
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Обновление токенов
+      tags:
+      - Authentication
+  /auth/token:
+    post:
+      consumes:
+      - application/json
+      description: Генерирует Access и Refresh токены для указанного пользователя
+      parameters:
+      - description: User ID
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.TokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Генерация токенов
+      tags:
+      - Authentication
+  /protected:
+    get:
+      description: Доступен только для авторизованных пользователей
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Hello, user
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Пример защищенного маршрута
+      tags:
+      - Protected
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

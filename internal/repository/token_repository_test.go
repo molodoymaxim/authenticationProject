@@ -42,24 +42,20 @@ func TestTokenRepository(t *testing.T) {
 	hashedToken := "hashed-refresh-token"
 	accessToken := "access-token"
 
-	// Тестируем сохранение токена
 	err := repo.SaveRefreshToken(userID, hashedToken, accessToken)
 	assert.NoError(t, err)
 
-	// Тестируем получение токена
 	tokenData, err := repo.GetRefreshToken(userID)
 	assert.NoError(t, err)
 	assert.Equal(t, userID, tokenData.UserID)
 	assert.Equal(t, hashedToken, tokenData.HashedToken)
 	assert.Equal(t, accessToken, tokenData.AccessToken)
 
-	// Тестируем обновление токена
 	newHashedToken := "new-hashed-refresh-token"
 	newAccessToken := "new-access-token"
 	err = repo.UpdateRefreshToken(userID, newHashedToken, newAccessToken)
 	assert.NoError(t, err)
 
-	// Проверяем обновленные данные
 	updatedTokenData, err := repo.GetRefreshToken(userID)
 	assert.NoError(t, err)
 	assert.Equal(t, newHashedToken, updatedTokenData.HashedToken)

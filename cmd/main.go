@@ -2,6 +2,7 @@ package main
 
 import (
 	"authenticationProject/configs"
+	"authenticationProject/docs"
 	"authenticationProject/internal/handlers"
 	"authenticationProject/internal/repository"
 	"authenticationProject/internal/repository/migration"
@@ -12,13 +13,27 @@ import (
 	"net/http"
 )
 
+// @title           Authentication Service API
+// @version         1.0
+// @description     API для аутентификации пользователей с использованием JWT токенов.
+
+// @license.name  MIT License
+// @license.url   https://opensource.org/licenses/MIT
+
+// @host      localhost:8080
+// @BasePath  /
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+
 func main() {
 	config := configs.LoadConfig()
 
-	// Инициализация логгера
+	docs.SwaggerInfo.Host = "localhost:" + config.AppPort
+
 	logger := utils.NewLogger(config.LogLevel)
 
-	// Инициализация базы данных
 	db, err := repository.NewDatabase(config.DatabaseURL)
 	if err != nil {
 		logger.Fatal("Failed to connect to database: ", err)
@@ -30,13 +45,11 @@ func main() {
 		logger.Fatal("Failed to apply migrations: ", err)
 	}
 
-	// Инициализация сервисов и хендлеров
 	tokenService := services.NewTokenService(config.SecretKey)
 	emailService := utils.NewEmailService(config.EmailAPIKey)
 	tokenRepository := repository.NewTokenRepository(db)
 	authHandler := handlers.NewAuthHandler(tokenService, tokenRepository, emailService, logger)
 
-	// Создание роутера
 	r := router.NewRouter(authHandler, logger, tokenService)
 
 	logger.Infof("Starting server on port %s", config.AppPort)

@@ -66,14 +66,12 @@ func TestGenerateTokens(t *testing.T) {
 }
 
 func TestRefreshTokens(t *testing.T) {
-	// Инициализация зависимостей
 	logger := logrus.New()
 	tokenService := services.NewTokenService("test_secret")
 	emailService := utils.NewEmailService("test_api_key")
 	tokenRepository := repository.NewInMemoryTokenRepository() // Используйте in-memory репозиторий для тестов
 	authHandler := NewAuthHandler(tokenService, tokenRepository, emailService, logger)
 
-	// Генерация первоначальных токенов
 	rr := httptest.NewRecorder()
 	reqBody := `{"user_id": "test-user-id"}`
 	req := httptest.NewRequest("POST", "/auth/token", strings.NewReader(reqBody))
@@ -91,17 +89,14 @@ func TestRefreshTokens(t *testing.T) {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
 
-	// Подготовка запроса на обновление токенов
 	rr = httptest.NewRecorder()
 	reqBody = fmt.Sprintf(`{"refresh_token": "%s"}`, tokens.RefreshToken)
 	req = httptest.NewRequest("POST", "/auth/refresh", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
 
-	// Выполнение запроса на обновление токенов
 	authHandler.RefreshTokens(rr, req)
 
-	// Проверка результатов
 	if rr.Code != http.StatusOK {
 		t.Errorf("Expected status code 200, got %d", rr.Code)
 	}

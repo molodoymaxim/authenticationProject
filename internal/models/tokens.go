@@ -4,14 +4,12 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-// CustomClaims представляет клеймы JWT токена
 type CustomClaims struct {
 	UserID string `json:"user_id"`
 	IP     string `json:"ip"`
 	jwt.RegisteredClaims
 }
 
-// RefreshTokenData содержит данные о Refresh токене в базе данных
 type RefreshTokenData struct {
 	UserID      string
 	HashedToken string
@@ -19,6 +17,14 @@ type RefreshTokenData struct {
 }
 
 type TokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"access_token" example:"<access_token>"`
+	RefreshToken string `json:"refresh_token" example:"<refresh_token>"`
+}
+
+type TokenRequest struct {
+	UserID string `json:"user_id" example:"123e4567-e89b-12d3-a456-426614174000"`
+}
+
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" example:"<refresh_token>"`
 }

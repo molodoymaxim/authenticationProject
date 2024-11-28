@@ -4,27 +4,28 @@ import (
 	"authenticationProject/internal/handlers"
 	"authenticationProject/internal/middleware"
 	"authenticationProject/internal/services"
+	"github.com/sirupsen/logrus"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"net/http"
 
+	_ "authenticationProject/docs"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
-	"github.com/sirupsen/logrus"
 )
 
 func NewRouter(authHandler *handlers.AuthHandler, logger *logrus.Logger, tokenService *services.TokenService) http.Handler {
 	r := chi.NewRouter()
 
-	// Общие middleware
 	r.Use(chiMiddleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
 
-	// Маршруты аутентификации
+	r.Mount("/swagger", httpSwagger.WrapHandler)
+
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/token", authHandler.GenerateTokens)
 		r.Post("/refresh", authHandler.RefreshTokens)
 	})
 
-	// Пример защищенного маршрута
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.AuthMiddleware(tokenService, logger))
 		r.Get("/protected", func(w http.ResponseWriter, r *http.Request) {

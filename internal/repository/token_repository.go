@@ -27,7 +27,6 @@ func NewDatabase(databaseURL string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	// Проверяем соединение
 	err = db.Ping()
 	if err != nil {
 		return nil, err
@@ -36,7 +35,6 @@ func NewDatabase(databaseURL string) (*sql.DB, error) {
 	return db, nil
 }
 
-// SaveRefreshToken сохраняет Refresh токен в базе данных
 func (r *tokenRepository) SaveRefreshToken(userID, hashedToken, accessToken string) error {
 	_, err := r.db.Exec(`
         INSERT INTO refresh_tokens (user_id, hashed_token, access_token)
@@ -48,7 +46,6 @@ func (r *tokenRepository) SaveRefreshToken(userID, hashedToken, accessToken stri
 	return err
 }
 
-// GetRefreshToken получает Refresh токен из базы данных
 func (r *tokenRepository) GetRefreshToken(userID string) (*models.RefreshTokenData, error) {
 	var tokenData models.RefreshTokenData
 	err := r.db.QueryRow(`
@@ -62,7 +59,6 @@ func (r *tokenRepository) GetRefreshToken(userID string) (*models.RefreshTokenDa
 	return &tokenData, nil
 }
 
-// UpdateRefreshToken обновляет Refresh токен в базе данных
 func (r *tokenRepository) UpdateRefreshToken(userID, hashedToken, accessToken string) error {
 	_, err := r.db.Exec(`
         UPDATE refresh_tokens
