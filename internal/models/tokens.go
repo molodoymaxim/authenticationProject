@@ -7,15 +7,11 @@ import (
 type CustomClaims struct {
 	UserID string `json:"user_id"`
 	IP     string `json:"ip"`
+	PairID string `json:"pair_id"`
 	jwt.RegisteredClaims
 }
 
-type RefreshTokenData struct {
-	UserID      string
-	HashedToken string
-	AccessToken string
-}
-
+// Структуры для swagger
 type TokenResponse struct {
 	AccessToken  string `json:"access_token" example:"<access_token>"`
 	RefreshToken string `json:"refresh_token" example:"<refresh_token>"`

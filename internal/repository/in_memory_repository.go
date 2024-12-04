@@ -1,13 +1,12 @@
 package repository
 
 import (
-	"authenticationProject/internal/models"
 	"errors"
 	"sync"
 )
 
 type InMemoryTokenRepository struct {
-	tokens map[string]*models.RefreshTokenData
+	tokens map[string]string
 	mu     sync.Mutex
 }
 
@@ -17,30 +16,27 @@ var (
 
 func NewInMemoryTokenRepository() TokenRepository {
 	return &InMemoryTokenRepository{
-		tokens: make(map[string]*models.RefreshTokenData),
+		tokens: make(map[string]string),
 	}
 }
 
-func (r *InMemoryTokenRepository) SaveRefreshToken(userID, hashedToken, accessToken string) error {
+func (r *InMemoryTokenRepository) SaveRefreshToken(userID, hashedToken string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.tokens[userID] = &models.RefreshTokenData{
-		HashedToken: hashedToken,
-		AccessToken: accessToken,
-	}
+	r.tokens[userID] = hashedToken
 	return nil
 }
 
-func (r *InMemoryTokenRepository) GetRefreshToken(userID string) (*models.RefreshTokenData, error) {
+func (r *InMemoryTokenRepository) GetRefreshTokenHash(userID string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	tokenData, exists := r.tokens[userID]
+	hashedToken, exists := r.tokens[userID]
 	if !exists {
-		return nil, ErrTokenNotFound
+		return "", ErrTokenNotFound
 	}
-	return tokenData, nil
+	return hashedToken, nil
 }
 
-func (r *InMemoryTokenRepository) UpdateRefreshToken(userID, hashedToken, accessToken string) error {
-	return r.SaveRefreshToken(userID, hashedToken, accessToken)
+func (r *InMemoryTokenRepository) UpdateRefreshToken(userID, hashedToken string) error {
+	return r.SaveRefreshToken(userID, hashedToken)
 }

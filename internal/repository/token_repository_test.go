@@ -20,10 +20,9 @@ func TestMain(m *testing.M) {
 	defer testDB.Close()
 
 	_, err = testDB.Exec(`CREATE TABLE IF NOT EXISTS refresh_tokens (
-        user_id VARCHAR(36) PRIMARY KEY,
-        hashed_token TEXT NOT NULL,
-        access_token TEXT NOT NULL
-    );`)
+		user_id VARCHAR(36) PRIMARY KEY,
+		hashed_token TEXT NOT NULL
+	);`)
 	if err != nil {
 		panic(err)
 	}
@@ -40,24 +39,19 @@ func TestTokenRepository(t *testing.T) {
 
 	userID := "test-user-id"
 	hashedToken := "hashed-refresh-token"
-	accessToken := "access-token"
 
-	err := repo.SaveRefreshToken(userID, hashedToken, accessToken)
+	err := repo.SaveRefreshToken(userID, hashedToken)
 	assert.NoError(t, err)
 
-	tokenData, err := repo.GetRefreshToken(userID)
+	storedHashedToken, err := repo.GetRefreshTokenHash(userID)
 	assert.NoError(t, err)
-	assert.Equal(t, userID, tokenData.UserID)
-	assert.Equal(t, hashedToken, tokenData.HashedToken)
-	assert.Equal(t, accessToken, tokenData.AccessToken)
+	assert.Equal(t, hashedToken, storedHashedToken)
 
 	newHashedToken := "new-hashed-refresh-token"
-	newAccessToken := "new-access-token"
-	err = repo.UpdateRefreshToken(userID, newHashedToken, newAccessToken)
+	err = repo.UpdateRefreshToken(userID, newHashedToken)
 	assert.NoError(t, err)
 
-	updatedTokenData, err := repo.GetRefreshToken(userID)
+	updatedHashedToken, err := repo.GetRefreshTokenHash(userID)
 	assert.NoError(t, err)
-	assert.Equal(t, newHashedToken, updatedTokenData.HashedToken)
-	assert.Equal(t, newAccessToken, updatedTokenData.AccessToken)
+	assert.Equal(t, newHashedToken, updatedHashedToken)
 }

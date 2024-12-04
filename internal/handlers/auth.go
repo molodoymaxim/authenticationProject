@@ -4,10 +4,13 @@ import (
 	"authenticationProject/internal/repository"
 	"authenticationProject/internal/services"
 	"authenticationProject/internal/utils"
+	"encoding/base64"
 	"encoding/json"
+	"net"
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -57,34 +60,37 @@ func (h *AuthHandler) GenerateTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientIP := r.RemoteAddr
-	h.Logger.Infof("Generating tokens for user %s from IP %s", req.UserID, clientIP)
+	userID := req.UserID
+	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+	h.Logger.Infof("Generating tokens for user %s from IP %s", userID, clientIP)
 
-	accessToken, err := h.TokenService.GenerateAccessToken(req.UserID, clientIP)
+	pairID := uuid.NewString()
+
+	accessToken, err := h.TokenService.GenerateAccessToken(userID, pairID, clientIP)
 	if err != nil {
 		h.Logger.Error("Failed to generate access token: ", err)
 		http.Error(w, "Failed to generate access token", http.StatusInternalServerError)
 		return
 	}
 
-	refreshToken, hashedToken, err := h.TokenService.GenerateRefreshToken()
+	refreshTokenEncoded, hashedToken, err := h.TokenService.GenerateRefreshToken(userID, pairID, clientIP)
 	if err != nil {
 		h.Logger.Error("Failed to generate refresh token: ", err)
 		http.Error(w, "Failed to generate refresh token", http.StatusInternalServerError)
 		return
 	}
 
-	err = h.TokenRepository.SaveRefreshToken(req.UserID, hashedToken, accessToken)
+	err = h.TokenRepository.SaveRefreshToken(userID, hashedToken)
 	if err != nil {
 		h.Logger.Error("Failed to save refresh token: ", err)
 		http.Error(w, "Failed to save refresh token", http.StatusInternalServerError)
 		return
 	}
 
-	h.Logger.Infof("Tokens generated successfully for user %s", req.UserID)
+	h.Logger.Infof("Tokens generated successfully for user %s", userID)
 	response := map[string]string{
 		"access_token":  accessToken,
-		"refresh_token": refreshToken,
+		"refresh_token": refreshTokenEncoded,
 	}
 	json.NewEncoder(w).Encode(response)
 }
@@ -126,43 +132,69 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := claims.UserID
+	accessPairID := claims.PairID
 	h.Logger.Infof("Refreshing tokens for user %s", userID)
 
-	tokenData, err := h.TokenRepository.GetRefreshToken(userID)
+	storedHash, err := h.TokenRepository.GetRefreshTokenHash(userID)
 	if err != nil {
 		h.Logger.Warn("Refresh token not found for user: ", userID)
 		http.Error(w, "Refresh token not found", http.StatusUnauthorized)
 		return
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(tokenData.HashedToken), []byte(req.RefreshToken))
+	refreshTokenBytes, err := base64.StdEncoding.DecodeString(req.RefreshToken)
+	if err != nil {
+		h.Logger.Warn("Invalid refresh token format")
+		http.Error(w, "Invalid refresh token format", http.StatusBadRequest)
+		return
+	}
+	refreshTokenPlain := string(refreshTokenBytes)
+
+	err = bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(refreshTokenPlain))
 	if err != nil {
 		h.Logger.Warn("Invalid refresh token for user: ", userID)
 		http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
 		return
 	}
 
-	clientIP := r.RemoteAddr
-	if claims.IP != clientIP {
-		h.Logger.Warnf("IP address changed for user %s: %s -> %s", userID, claims.IP, clientIP)
+	parts := strings.Split(refreshTokenPlain, ":")
+	if len(parts) != 3 {
+		h.Logger.Warn("Invalid refresh token format")
+		http.Error(w, "Invalid refresh token format", http.StatusBadRequest)
+		return
+	}
+	refreshUserID := parts[0]
+	refreshPairID := parts[1]
+	refreshIP := parts[2]
+
+	if userID != refreshUserID || accessPairID != refreshPairID {
+		h.Logger.Warn("Access and Refresh tokens do not match")
+		http.Error(w, "Invalid token pair", http.StatusUnauthorized)
+		return
+	}
+
+	clientIP, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if clientIP != refreshIP {
+		h.Logger.Warnf("IP address changed for user %s: %s -> %s", userID, refreshIP, clientIP)
 		h.EmailService.SendEmailWarning(userID, "IP address changed during token refresh.")
 	}
 
-	newAccessToken, err := h.TokenService.GenerateAccessToken(userID, clientIP)
+	newPairID := uuid.NewString()
+	newAccessToken, err := h.TokenService.GenerateAccessToken(userID, newPairID, clientIP)
 	if err != nil {
 		h.Logger.Error("Failed to generate new access token: ", err)
 		http.Error(w, "Failed to generate new access token", http.StatusInternalServerError)
 		return
 	}
 
-	newRefreshToken, newHashedToken, err := h.TokenService.GenerateRefreshToken()
+	newRefreshTokenEncoded, newHashedToken, err := h.TokenService.GenerateRefreshToken(userID, newPairID, clientIP)
 	if err != nil {
 		h.Logger.Error("Failed to generate new refresh token: ", err)
 		http.Error(w, "Failed to generate new refresh token", http.StatusInternalServerError)
 		return
 	}
 
-	err = h.TokenRepository.UpdateRefreshToken(userID, newHashedToken, newAccessToken)
+	err = h.TokenRepository.UpdateRefreshToken(userID, newHashedToken)
 	if err != nil {
 		h.Logger.Error("Failed to update refresh token: ", err)
 		http.Error(w, "Failed to update refresh token", http.StatusInternalServerError)
@@ -172,7 +204,7 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Infof("Tokens refreshed successfully for user %s", userID)
 	response := map[string]string{
 		"access_token":  newAccessToken,
-		"refresh_token": newRefreshToken,
+		"refresh_token": newRefreshTokenEncoded,
 	}
 	json.NewEncoder(w).Encode(response)
 }

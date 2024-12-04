@@ -1,16 +1,15 @@
 package repository
 
 import (
-	"authenticationProject/internal/models"
 	"database/sql"
 
 	_ "github.com/lib/pq"
 )
 
 type TokenRepository interface {
-	SaveRefreshToken(userID, hashedToken, accessToken string) error
-	GetRefreshToken(userID string) (*models.RefreshTokenData, error)
-	UpdateRefreshToken(userID, hashedToken, accessToken string) error
+	SaveRefreshToken(userID, hashedToken string) error
+	GetRefreshTokenHash(userID string) (string, error)
+	UpdateRefreshToken(userID, hashedToken string) error
 }
 
 type tokenRepository struct {
@@ -35,35 +34,34 @@ func NewDatabase(databaseURL string) (*sql.DB, error) {
 	return db, nil
 }
 
-func (r *tokenRepository) SaveRefreshToken(userID, hashedToken, accessToken string) error {
+func (r *tokenRepository) SaveRefreshToken(userID, hashedToken string) error {
 	_, err := r.db.Exec(`
-        INSERT INTO refresh_tokens (user_id, hashed_token, access_token)
-        VALUES ($1, $2, $3)
+        INSERT INTO refresh_tokens (user_id, hashed_token)
+        VALUES ($1, $2)
         ON CONFLICT (user_id) DO UPDATE
-        SET hashed_token = EXCLUDED.hashed_token,
-            access_token = EXCLUDED.access_token
-    `, userID, hashedToken, accessToken)
+        SET hashed_token = EXCLUDED.hashed_token
+    `, userID, hashedToken)
 	return err
 }
 
-func (r *tokenRepository) GetRefreshToken(userID string) (*models.RefreshTokenData, error) {
-	var tokenData models.RefreshTokenData
+func (r *tokenRepository) GetRefreshTokenHash(userID string) (string, error) {
+	var hashedToken string
 	err := r.db.QueryRow(`
-        SELECT user_id, hashed_token, access_token
+        SELECT hashed_token
         FROM refresh_tokens
         WHERE user_id = $1
-    `, userID).Scan(&tokenData.UserID, &tokenData.HashedToken, &tokenData.AccessToken)
+    `, userID).Scan(&hashedToken)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return &tokenData, nil
+	return hashedToken, nil
 }
 
-func (r *tokenRepository) UpdateRefreshToken(userID, hashedToken, accessToken string) error {
+func (r *tokenRepository) UpdateRefreshToken(userID, hashedToken string) error {
 	_, err := r.db.Exec(`
         UPDATE refresh_tokens
-        SET hashed_token = $1, access_token = $2
-        WHERE user_id = $3
-    `, hashedToken, accessToken, userID)
+        SET hashed_token = $1
+        WHERE user_id = $2
+    `, hashedToken, userID)
 	return err
 }

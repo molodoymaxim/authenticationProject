@@ -2,8 +2,8 @@ package services
 
 import (
 	"authenticationProject/internal/models"
-	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"github.com/golang-jwt/jwt/v4"
 	"time"
 
@@ -11,21 +11,24 @@ import (
 )
 
 type TokenService struct {
-	SecretKey string
+	SecretKey   string
+	AccessToken time.Duration
 }
 
 func NewTokenService(secretKey string) *TokenService {
 	return &TokenService{
-		SecretKey: secretKey,
+		SecretKey:   secretKey,
+		AccessToken: time.Hour * 1,
 	}
 }
 
-func (s *TokenService) GenerateAccessToken(userID, clientIP string) (string, error) {
+func (s *TokenService) GenerateAccessToken(userID, pairID, clientIP string) (string, error) {
 	claims := &models.CustomClaims{
 		UserID: userID,
 		IP:     clientIP,
+		PairID: pairID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 1)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.AccessToken)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
@@ -44,16 +47,12 @@ func (s *TokenService) ValidateAccessToken(tokenStr string) (*models.CustomClaim
 	}
 }
 
-func (s *TokenService) GenerateRefreshToken() (string, string, error) {
-	tokenBytes := make([]byte, 32)
-	_, err := rand.Read(tokenBytes)
+func (s *TokenService) GenerateRefreshToken(userID, pairID, clientIP string) (string, string, error) {
+	refreshTokenPlain := fmt.Sprintf("%s:%s:%s", userID, pairID, clientIP)
+	refreshTokenEncoded := base64.StdEncoding.EncodeToString([]byte(refreshTokenPlain))
+	hashedToken, err := bcrypt.GenerateFromPassword([]byte(refreshTokenPlain), bcrypt.DefaultCost)
 	if err != nil {
 		return "", "", err
 	}
-	refreshToken := base64.URLEncoding.EncodeToString(tokenBytes)
-	hashedToken, err := bcrypt.GenerateFromPassword([]byte(refreshToken), bcrypt.DefaultCost)
-	if err != nil {
-		return "", "", err
-	}
-	return refreshToken, string(hashedToken), nil
+	return refreshTokenEncoded, string(hashedToken), nil
 }

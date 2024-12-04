@@ -1,13 +1,11 @@
 package handlers
 
 import (
-	"authenticationProject/internal/models"
 	"authenticationProject/internal/repository"
 	"authenticationProject/internal/services"
 	"authenticationProject/internal/utils"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,19 +18,15 @@ import (
 
 type MockTokenRepository struct{}
 
-func (m *MockTokenRepository) SaveRefreshToken(userID, hashedToken, accessToken string) error {
+func (m *MockTokenRepository) SaveRefreshToken(userID, hashedToken string) error {
 	return nil
 }
 
-func (m *MockTokenRepository) GetRefreshToken(userID string) (*models.RefreshTokenData, error) {
-	return &models.RefreshTokenData{
-		UserID:      userID,
-		HashedToken: "$2a$10$examplehashedtoken",
-		AccessToken: "exampleaccesstoken",
-	}, nil
+func (m *MockTokenRepository) GetRefreshTokenHash(userID string) (string, error) {
+	return "$2a$10$examplehashedtoken", nil
 }
 
-func (m *MockTokenRepository) UpdateRefreshToken(userID, hashedToken, accessToken string) error {
+func (m *MockTokenRepository) UpdateRefreshToken(userID, hashedToken string) error {
 	return nil
 }
 
@@ -53,6 +47,7 @@ func TestGenerateTokens(t *testing.T) {
 	bodyBytes, _ := json.Marshal(reqBody)
 	req, err := http.NewRequest("POST", "/auth/token", bytes.NewBuffer(bodyBytes))
 	assert.NoError(t, err)
+	req.RemoteAddr = "127.0.0.1:12345"
 
 	recorder := httptest.NewRecorder()
 	r.ServeHTTP(recorder, req)
@@ -69,48 +64,40 @@ func TestRefreshTokens(t *testing.T) {
 	logger := logrus.New()
 	tokenService := services.NewTokenService("test_secret")
 	emailService := utils.NewEmailService("test_api_key")
-	tokenRepository := repository.NewInMemoryTokenRepository() // Используйте in-memory репозиторий для тестов
+	tokenRepository := repository.NewInMemoryTokenRepository()
 	authHandler := NewAuthHandler(tokenService, tokenRepository, emailService, logger)
 
 	rr := httptest.NewRecorder()
 	reqBody := `{"user_id": "test-user-id"}`
 	req := httptest.NewRequest("POST", "/auth/token", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = "127.0.0.1:12345"
 
 	authHandler.GenerateTokens(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("Expected status code 200, got %d", rr.Code)
-	}
+	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var tokens models.TokenResponse
+	var tokens map[string]string
 	err := json.Unmarshal(rr.Body.Bytes(), &tokens)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal response: %v", err)
-	}
+	assert.NoError(t, err)
+	accessToken := tokens["access_token"]
+	refreshToken := tokens["refresh_token"]
 
 	rr = httptest.NewRecorder()
-	reqBody = fmt.Sprintf(`{"refresh_token": "%s"}`, tokens.RefreshToken)
+	reqBody = `{"refresh_token": "` + refreshToken + `"}`
 	req = httptest.NewRequest("POST", "/auth/refresh", strings.NewReader(reqBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.RemoteAddr = "127.0.0.1:12345"
 
 	authHandler.RefreshTokens(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("Expected status code 200, got %d", rr.Code)
-	}
+	assert.Equal(t, http.StatusOK, rr.Code)
 
-	var newTokens models.TokenResponse
+	var newTokens map[string]string
 	err = json.Unmarshal(rr.Body.Bytes(), &newTokens)
-	if err != nil {
-		t.Errorf("Failed to unmarshal response: %v", err)
-	}
+	assert.NoError(t, err)
 
-	if newTokens.AccessToken == "" {
-		t.Error("Access token should not be empty")
-	}
-	if newTokens.RefreshToken == "" {
-		t.Error("Refresh token should not be empty")
-	}
+	assert.NotEmpty(t, newTokens["access_token"])
+	assert.NotEmpty(t, newTokens["refresh_token"])
 }
